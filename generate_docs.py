@@ -122,7 +122,7 @@ def generate_documents(excel_path, template_path):
             if "Date:" in p.text:
                 p.text = p.text.replace(
                     "Date:",
-                    f"Date: {pd.Timestamp.now().strftime('%d-%m-%Y')}"
+                    f"Date: {pd.Timestamp.now().strftime('%d.%m.%Y')}"
                 )
             if "Re: Review of strategic activities as at xxxxxxxx" in p.text:
                 p.text = p.text.replace(
