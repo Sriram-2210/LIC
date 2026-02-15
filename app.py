@@ -5,12 +5,13 @@ import zipfile
 import hashlib
 from docx import Document
 
-from generate_docs import generate_documents
+from src.DocumentGeneratorStrategicActivites import StrategicDocGenerator
 
 st.set_page_config(layout="wide")
 st.title("Excel → Word Generator")
 
-TEMPLATE_PATH = "template.docx"
+TEMPLATE_STRATEGIC_ACTIVITIES_PATH = "template_strategic_activities.docx"
+TEMPLATE_BUDGET_PATH = "template_budget.docx"
 
 
 # -------------------------------------------------
@@ -25,14 +26,17 @@ def get_file_hash(file_bytes):
 # -------------------------------------------------
 @st.cache_data(show_spinner=True)
 def cached_generate_documents(file_bytes, template_path):
+    # Write uploaded bytes to a temp file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         tmp.write(file_bytes)
         temp_excel_path = tmp.name
 
-    docs_dict = generate_documents(temp_excel_path, template_path)
+    # Use the StrategicDocGenerator class
+    generator = StrategicDocGenerator(temp_excel_path, template_path)
+    docs_dict = generator.generate_documents()
 
+    # Serialize Word docs to bytes
     serialized_docs = {}
-
     for division, doc_obj in docs_dict.items():
         buffer = BytesIO()
         doc_obj.save(buffer)
@@ -66,7 +70,7 @@ if uploaded_excel:
 
             docs_bytes = cached_generate_documents(
                 file_bytes,
-                TEMPLATE_PATH
+                TEMPLATE_STRATEGIC_ACTIVITIES_PATH
             )
 
             st.session_state.docs_bytes = docs_bytes
