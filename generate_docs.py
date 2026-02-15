@@ -105,7 +105,12 @@ def generate_documents(excel_path, template_path):
     df = clean_excel(df)
     columns = df.columns
     date_str = extract_activity_columns(columns)["college_campus"]["completed"].split("_")[-1]
-    date_obj = datetime.strptime(date_str, "%d%m%y").date().strftime("%d-%m-%y")
+    try:
+
+        date_obj = datetime.strptime(date_str, "%d%m%y").date().strftime("%d-%m-%y")
+    except:
+        date_obj = datetime.strptime(date_str, "%d%m%Y").date().strftime("%d-%m-%Y")
+    
     for _, row in df.iterrows():
         division = row.iloc[0]
 
