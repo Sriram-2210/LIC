@@ -6,33 +6,29 @@ import hashlib
 from docx import Document
 
 from src.DocumentGeneratorStrategicActivites import StrategicDocGenerator
+from src.DocumentGeneratorBudget import BudgetDocGenerator
 
 st.set_page_config(layout="wide")
 st.title("Excel → Word Generator")
 
-TEMPLATE_STRATEGIC_ACTIVITIES_PATH = "template_strategic_activities.docx"
-TEMPLATE_BUDGET_PATH = "template_budget.docx"
+TEMPLATE_STRATEGIC_ACTIVITIES_PATH = "templates/template_strategic_activities.docx"
+TEMPLATE_BUDGET_PATH = "templates/template_budget.docx"
 
 
-# -------------------------------------------------
-# Utility: Create hash of uploaded file
-# -------------------------------------------------
+# -------------------- Utility --------------------
 def get_file_hash(file_bytes):
     return hashlib.md5(file_bytes).hexdigest()
 
 
-# -------------------------------------------------
-# Cached generator (returns serializable bytes)
-# -------------------------------------------------
+# -------------------- Cached generation --------------------
 @st.cache_data(show_spinner=True)
-def cached_generate_documents(file_bytes, template_path):
-    # Write uploaded bytes to a temp file
+def cached_generate_documents(file_bytes, generator_class, template_path):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         tmp.write(file_bytes)
         temp_excel_path = tmp.name
 
-    # Use the StrategicDocGenerator class
-    generator = StrategicDocGenerator(temp_excel_path, template_path)
+    # Instantiate the correct generator class
+    generator = generator_class(temp_excel_path, template_path)
     docs_dict = generator.generate_documents()
 
     # Serialize Word docs to bytes
@@ -45,32 +41,50 @@ def cached_generate_documents(file_bytes, template_path):
     return serialized_docs
 
 
-# -------------------------------------------------
-# Upload Excel
-# -------------------------------------------------
+# -------------------- Choose Excel type --------------------
+excel_type = st.radio(
+    "Select the type of Excel file",
+    options=["Strategic Activities", "Budget"]
+)
+
+if excel_type == "Strategic Activities":
+    generator_class = StrategicDocGenerator
+    template_path = TEMPLATE_STRATEGIC_ACTIVITIES_PATH
+    default_prefix = "Review of Strategic Activities of"
+else:
+    generator_class = BudgetDocGenerator
+    template_path = TEMPLATE_BUDGET_PATH
+    default_prefix = "Review of Budget of"
+
+# -------------------- User can override filename prefix --------------------
+filename_prefix = st.text_input(
+    "Optional: File name prefix for each division",
+    value=default_prefix
+)
+
+
+# -------------------- Upload Excel --------------------
 uploaded_excel = st.file_uploader("Upload Excel File", type=["xlsx"])
 
-# Session state initialization
+# Initialize session state
 if "docs_bytes" not in st.session_state:
     st.session_state.docs_bytes = None
-
 if "file_hash" not in st.session_state:
     st.session_state.file_hash = None
 
-
 if uploaded_excel:
-
     file_bytes = uploaded_excel.read()
     current_hash = get_file_hash(file_bytes)
 
     if st.button("Generate Documents"):
 
-        # Regenerate only if file changed
+        # Only regenerate if file changed
         if st.session_state.file_hash != current_hash:
 
             docs_bytes = cached_generate_documents(
                 file_bytes,
-                TEMPLATE_STRATEGIC_ACTIVITIES_PATH
+                generator_class,
+                template_path
             )
 
             st.session_state.docs_bytes = docs_bytes
@@ -78,19 +92,17 @@ if uploaded_excel:
 
         st.success("Documents Generated Successfully!")
 
-    # -------------------------------------------------
-    # Display Generated Documents
-    # -------------------------------------------------
+    # -------------------- Display Generated Docs --------------------
     if st.session_state.docs_bytes:
 
         docs_bytes = st.session_state.docs_bytes
 
-        # ---------------- ZIP DOWNLOAD ----------------
+        # -------- ZIP Download --------
         zip_buffer = BytesIO()
-
         with zipfile.ZipFile(zip_buffer, "w") as zf:
             for division, doc_bytes in docs_bytes.items():
-                zf.writestr(f"{division}.docx", doc_bytes)
+                file_name = f"{filename_prefix} {division}.docx"
+                zf.writestr(file_name, doc_bytes)
 
         zip_buffer.seek(0)
 
@@ -104,45 +116,35 @@ if uploaded_excel:
         st.markdown("---")
         st.subheader("Generated Documents")
 
-        # ---------------- INDIVIDUAL DOCUMENTS ----------------
+        # -------- Individual Document Preview --------
         for division, doc_bytes in docs_bytes.items():
-
             with st.expander(f"📄 {division}", expanded=False):
 
-                # Rebuild document for preview only
                 doc_obj = Document(BytesIO(doc_bytes))
 
-                # -------- HEADER (Preview + Download side-by-side) --------
                 col1, col2 = st.columns([6, 2])
-
                 with col1:
                     st.markdown("### Document Preview")
-
                 with col2:
+                    file_name = f"{filename_prefix} {division}.docx"
                     st.download_button(
                         label="⬇ Download",
                         data=doc_bytes,
-                        file_name=f"{division}.docx",
+                        file_name=file_name,
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         key=f"download_{division}"
                     )
 
                 st.markdown("---")
 
-                # -------- PARAGRAPHS --------
+                # Paragraphs
                 for para in doc_obj.paragraphs:
                     if para.text.strip():
                         st.write(para.text)
 
-                # -------- TABLES --------
+                # Tables
                 for table_index, table in enumerate(doc_obj.tables):
-
                     st.markdown(f"#### Table {table_index + 1}")
-
-                    table_data = []
-                    for row in table.rows:
-                        row_data = [cell.text.strip() for cell in row.cells]
-                        table_data.append(row_data)
-
+                    table_data = [[cell.text.strip() for cell in row.cells] for row in table.rows]
                     if table_data:
                         st.table(table_data)

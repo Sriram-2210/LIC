@@ -107,7 +107,7 @@ class BudgetDocGenerator(DocumentGeneratorClass):
 
     def get_date_from_columns(self):
 
-        date_str = pd.read_excel("budget.xlsx",nrows=1).columns[0].split(" ")[-1].replace(".","")
+        date_str = pd.read_excel(self.excel_path,nrows=1).columns[0].split(" ")[-1].replace(".","")
         try:
             return datetime.strptime(date_str, "%d%m%y").strftime("%d-%m-%y")
         except:
