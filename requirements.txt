@@ -65,7 +65,7 @@ pillow==10.4.0
     # via streamlit
 protobuf==4.25.8
     # via streamlit
-pyarrow==14.0.2
+pyarrow==12.0.1
     # via
     #   lic (pyproject.toml)
     #   streamlit
